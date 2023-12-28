@@ -22,7 +22,7 @@ SSLDIR=./openssl-3.0.12
 ## Code ausführen
 
 ```sh
-make macos && ./s87622
+make macos && ./s87622 && cat decrypted.bin
 ```
 
 ## Entschlüsselte Datei anschauen:

@@ -13,14 +13,14 @@ int main(void) {
     int inlen, outlen;
 
     // Lade das Chiffrat
-    f_cipher = fopen("s87622-cipher.bin", "rb");
+    f_cipher = fopen("./bin/s87622-cipher.bin", "rb");
     if (!f_cipher) {
         perror("Fehler beim Öffnen der Chiffrat-Datei");
         return 1;
     }
 
     // Lade den Schlüssel und IV
-    f_key = fopen("s87622-key1.bin", "rb");
+    f_key = fopen("./bin/s87622-key1.bin", "rb");
     if (!f_key) {
         perror("Fehler beim Öffnen der Schlüsseldatei");
         fclose(f_cipher);
