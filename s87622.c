@@ -1,7 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <openssl/evp.h>
 #include <openssl/aes.h>
+
+FILE *openBinaryFile(const char *filepath) {
+    FILE *file = fopen(filepath, "rb");
+    if (!file) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Fehler beim Öffnen der Datei: %s", filepath);
+        perror(err_msg);
+    }
+    return file;
+}
 
 int main(void) {
     FILE *bin_file_cipher, *bin_file_key, *bin_file_decrypted;
@@ -13,19 +24,10 @@ int main(void) {
     int inlen, outlen;
 
     // Lade das Chiffrat aus ./bin/s87622-cipher.bin
-    bin_file_cipher = fopen("./bin/s87622-cipher.bin", "rb");
-    if (!bin_file_cipher) {
-        perror("Fehler beim Öffnen der Chiffrat-Datei");
-        return 1;
-    }
+    bin_file_cipher = openBinaryFile("./bin/s87622-cipher.bin");
 
     // Lade den Schlüssel und Intitaliserungs Vektor (IV) aus ./bin/s87622-key1.bin
-    bin_file_key = fopen("./bin/s87622-key1.bin", "rb");
-    if (!bin_file_key) {
-        perror("Fehler beim Öffnen der Schlüsseldatei");
-        fclose(bin_file_cipher);
-        return 1;
-    }
+    bin_file_key = openBinaryFile("./bin/s87622-key1.bin");
 
     cipher_type = EVP_aes_256_xts();
     key_length = EVP_CIPHER_key_length(cipher_type);
