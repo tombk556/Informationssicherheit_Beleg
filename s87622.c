@@ -14,6 +14,23 @@ FILE *openBinaryFile(const char *filepath) {
     return file;
 }
 
+void addWinterHat(char c, FILE *outFile) {
+    switch (c) {
+        case 'a': fprintf(outFile, "â"); break;
+        case 'e': fprintf(outFile, "ê"); break;
+        case 'i': fprintf(outFile, "î"); break;
+        case 'o': fprintf(outFile, "ô"); break;
+        case 'u': fprintf(outFile, "û"); break;
+        default:  fputc(c, outFile); break;
+    }
+}
+
+void transformBufferAndWrite(unsigned char *buf, int len, FILE *outFile) {
+    for (int i = 0; i < len; ++i) {
+        addWinterHat(buf[i], outFile);
+    }
+}
+
 int main(void) {
     FILE *bin_file_cipher, *bin_file_key, *bin_file_decrypted;
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
@@ -61,7 +78,8 @@ int main(void) {
             EVP_CIPHER_CTX_free(ctx);
             return 1;
         }
-        fwrite(outbuf, 1, outlen, bin_file_decrypted);
+        transformBufferAndWrite(outbuf, outlen, bin_file_decrypted);
+
     }
 
     if (!EVP_DecryptFinal_ex(ctx, outbuf, &outlen)) {
