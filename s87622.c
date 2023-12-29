@@ -14,6 +14,36 @@ FILE *openBinaryFile(const char *filepath) {
     return file;
 }
 
+void encryptFile(const char *srcPath, const char *destPath, const unsigned char *key, const unsigned char *iv) {
+    FILE *srcFile = fopen(srcPath, "rb");
+    FILE *destFile = fopen(destPath, "wb");
+    if (!srcFile || !destFile) {
+        perror("Fehler beim Öffnen der Dateien für die Verschlüsselung");
+        if (srcFile) fclose(srcFile);
+        if (destFile) fclose(destFile);
+        return;
+    }
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    const EVP_CIPHER *cipher_type = EVP_aes_128_xts();
+    EVP_EncryptInit_ex(ctx, cipher_type, NULL, key, iv);
+
+    unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    int inlen, outlen;
+
+    while ((inlen = fread(inbuf, 1, sizeof(inbuf), srcFile)) > 0) {
+        EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
+        fwrite(outbuf, 1, outlen, destFile);
+    }
+
+    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
+    fwrite(outbuf, 1, outlen, destFile);
+
+    fclose(srcFile);
+    fclose(destFile);
+    EVP_CIPHER_CTX_free(ctx);
+}
+
 void addWinterHat(char c, FILE *outFile) {
     switch (c) {
         case 'a': fprintf(outFile, "â"); break;
@@ -98,5 +128,16 @@ int main(void) {
     EVP_CIPHER_CTX_free(ctx);
 
     printf("Entschlüsselung erfolgreich abgeschlossen.\n");
+
+
+     unsigned char key2[EVP_MAX_KEY_LENGTH * 2], iv2[EVP_MAX_IV_LENGTH];
+    FILE *keyFile2 = openBinaryFile("./bin/s87622-key2.bin");
+    fread(key2, 1, EVP_MAX_KEY_LENGTH * 2, keyFile2);  // Doppelter Schlüssel für XTS
+    fread(iv2, 1, EVP_MAX_IV_LENGTH, keyFile2);
+    fclose(keyFile2);
+
+    // Verschlüsselungsprozess
+    encryptFile("decrypted.bin", "s87622-result.bin", key2, iv2);
+    printf("Verschlüsselung erfolgreich abgeschlossen.\n");
     return 0;
 }
