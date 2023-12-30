@@ -4,140 +4,81 @@
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 
-FILE *openBinaryFile(const char *filepath) {
-    FILE *file = fopen(filepath, "rb");
+FILE *bin_datei(const char *path) {
+    FILE *file = fopen(path, "rb");
     if (!file) {
         char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Fehler beim Öffnen der Datei: %s", filepath);
+        snprintf(err_msg, sizeof(err_msg), "Fehler beim Öffnen der Datei: %s", path);
         perror(err_msg);
     }
     return file;
 }
 
-void encryptFile(const char *srcPath, const char *destPath, const unsigned char *key, const unsigned char *iv) {
-    FILE *srcFile = fopen(srcPath, "rb");
-    FILE *destFile = fopen(destPath, "wb");
-    if (!srcFile || !destFile) {
-        perror("Fehler beim Öffnen der Dateien für die Verschlüsselung");
-        if (srcFile) fclose(srcFile);
-        if (destFile) fclose(destFile);
-        return;
-    }
-
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    const EVP_CIPHER *cipher_type = EVP_aes_128_xts();
-    EVP_EncryptInit_ex(ctx, cipher_type, NULL, key, iv);
-
-    unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen;
-
-    while ((inlen = fread(inbuf, 1, sizeof(inbuf), srcFile)) > 0) {
-        EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
-        fwrite(outbuf, 1, outlen, destFile);
-    }
-
-    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
-    fwrite(outbuf, 1, outlen, destFile);
-
-    fclose(srcFile);
-    fclose(destFile);
-    EVP_CIPHER_CTX_free(ctx);
-}
-
-void addWinterHat(char c, FILE *outFile) {
+void winterliche_muetzen(char c, FILE *output) {
     switch (c) {
-        case 'a': fprintf(outFile, "â"); break;
-        case 'e': fprintf(outFile, "ê"); break;
-        case 'i': fprintf(outFile, "î"); break;
-        case 'o': fprintf(outFile, "ô"); break;
-        case 'u': fprintf(outFile, "û"); break;
-        default:  fputc(c, outFile); break;
-    }
-}
-
-void transformBufferAndWrite(unsigned char *buf, int len, FILE *outFile) {
-    for (int i = 0; i < len; ++i) {
-        addWinterHat(buf[i], outFile);
+        case 'a': fprintf(output, "â"); break;
+        case 'e': fprintf(output, "ê"); break;
+        case 'i': fprintf(output, "î"); break;
+        case 'o': fprintf(output, "ô"); break;
+        case 'u': fprintf(output, "û"); break;
+        default:  fputc(c, output); break;
     }
 }
 
 int main(void) {
-    FILE *bin_file_cipher, *bin_file_key, *bin_file_decrypted;
+    // Variablen definieren und instanziieren
+    FILE *s87622_bin, *s87622_key1_bin;
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
-    const EVP_CIPHER *cipher_type;
+    const EVP_CIPHER *cipher_verfahren;
     EVP_CIPHER_CTX *ctx;
     int key_length, iv_length;
-    unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    unsigned char input[1024], output_raw[1024 + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
 
-    // Lade das Chiffrat aus ./bin/s87622-cipher.bin
-    bin_file_cipher = openBinaryFile("./bin/s87622-cipher.bin");
+    // Lade das Chiffrat und den Schlüssel/IV
+    s87622_bin = bin_datei("./bin/s87622-cipher.bin");
+    s87622_key1_bin = bin_datei("./bin/s87622-key1.bin");
 
-    // Lade den Schlüssel und Intitaliserungs Vektor (IV) aus ./bin/s87622-key1.bin
-    bin_file_key = openBinaryFile("./bin/s87622-key1.bin");
+    cipher_verfahren = EVP_aes_256_xts();
+    key_length = EVP_CIPHER_key_length(cipher_verfahren);
+    iv_length = EVP_CIPHER_iv_length(cipher_verfahren);
 
-    cipher_type = EVP_aes_256_xts();
-    key_length = EVP_CIPHER_key_length(cipher_type);
-    iv_length = EVP_CIPHER_iv_length(cipher_type);
+    // Lese Schlüssel und IV
+    fread(key, 1, key_length, s87622_key1_bin);
+    fread(iv, 1, iv_length, s87622_key1_bin);
+    fclose(s87622_key1_bin);
 
-    // Lese Schlüssel und IV aus der Datei
-    fread(key, 1, key_length, bin_file_key);
-    fread(iv, 1, iv_length, bin_file_key);
-    fclose(bin_file_key);
-
-    // Initialisiere die Entschlüsselung
+    // Initialisiere Entschlüsselung
     ctx = EVP_CIPHER_CTX_new();
-    EVP_DecryptInit_ex(ctx, cipher_type, NULL, key, iv);
-
-    // Öffne die Ausgabedatei
-    bin_file_decrypted = fopen("decrypted.bin", "wb");
-    if (!bin_file_decrypted) {
-        perror("Fehler beim Öffnen der Ausgabedatei");
-        fclose(bin_file_cipher);
-        EVP_CIPHER_CTX_free(ctx);
-        return 1;
-    }
+    EVP_DecryptInit_ex(ctx, cipher_verfahren, NULL, key, iv);
 
     // Entschlüsselungsprozess
-    while ((inlen = fread(inbuf, 1, 1024, bin_file_cipher)) > 0) {
-        if (!EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen)) {
+    while ((inlen = fread(input, 1, 1024, s87622_bin)) > 0) {
+        if (!EVP_DecryptUpdate(ctx, output_raw, &outlen, input, inlen)) {
             // Fehlerbehandlung
             fprintf(stderr, "Fehler bei der Entschlüsselung.\n");
-            fclose(bin_file_cipher);
-            fclose(bin_file_decrypted);
+            fclose(s87622_bin);
             EVP_CIPHER_CTX_free(ctx);
             return 1;
         }
-        transformBufferAndWrite(outbuf, outlen, bin_file_decrypted);
-
     }
 
-    if (!EVP_DecryptFinal_ex(ctx, outbuf, &outlen)) {
-        // Fehlerbehandlung für den finalen Block
-        fprintf(stderr, "Fehler bei der finalen Entschlüsselung.\n");
-        fclose(bin_file_cipher);
-        fclose(bin_file_decrypted);
-        EVP_CIPHER_CTX_free(ctx);
-        return 1;
+    // Ausgabe der Nachricht
+    printf("Verschlüsselte Nachricht aus s87622-cipher.bin ORIGINAL: \n");
+    printf("\n");
+    printf("%s", output_raw); 
+
+    printf("Verschlüsselte Nachricht aus s87622-cipher.bin mit 'winterlichen Mützen': \n");
+    printf("\n");
+    for (int i = 0; i < outlen; i++) {
+        winterliche_muetzen(output_raw[i], stdout); 
     }
-    fwrite(outbuf, 1, outlen, bin_file_decrypted);
+
+
 
     // Aufräumarbeiten
-    fclose(bin_file_cipher);
-    fclose(bin_file_decrypted);
+    fclose(s87622_bin);
     EVP_CIPHER_CTX_free(ctx);
 
-    printf("Entschlüsselung erfolgreich abgeschlossen.\n");
-
-
-     unsigned char key2[EVP_MAX_KEY_LENGTH * 2], iv2[EVP_MAX_IV_LENGTH];
-    FILE *keyFile2 = openBinaryFile("./bin/s87622-key2.bin");
-    fread(key2, 1, EVP_MAX_KEY_LENGTH * 2, keyFile2);  // Doppelter Schlüssel für XTS
-    fread(iv2, 1, EVP_MAX_IV_LENGTH, keyFile2);
-    fclose(keyFile2);
-
-    // Verschlüsselungsprozess
-    encryptFile("decrypted.bin", "s87622-result.bin", key2, iv2);
-    printf("Verschlüsselung erfolgreich abgeschlossen.\n");
     return 0;
 }
