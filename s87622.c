@@ -25,6 +25,44 @@ void winterliche_muetzen(char c, FILE *output) {
     }
 }
 
+void verschluesseln_und_speichern(const unsigned char *input, int input_len, const char *key_path, const char *output_path) {
+    FILE *key_file = fopen(key_path, "rb");
+    FILE *output_datei = fopen(output_path, "wb");
+    unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
+    const EVP_CIPHER *cipher_verfahren;
+    EVP_CIPHER_CTX *ctx;
+    unsigned char output_raw[1024 + EVP_MAX_BLOCK_LENGTH];
+    int outlen;
+
+    if (!key_file || !output_datei) {
+        perror("Fehler beim Öffnen der Schlüssel- oder Ausgabedatei");
+        return;
+    }
+
+    // Lese Schlüssel und IV
+    fread(key, 1, EVP_MAX_KEY_LENGTH, key_file);
+    fread(iv, 1, EVP_MAX_IV_LENGTH, key_file);
+    fclose(key_file);
+
+    // Verschlüsselungsverfahren initialisieren
+    cipher_verfahren = EVP_aes_128_xts();
+    ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, cipher_verfahren, NULL, key, iv);
+
+    // Verschlüsselungsprozess
+    if (!EVP_EncryptUpdate(ctx, output_raw, &outlen, input, input_len)) {
+        fprintf(stderr, "Fehler bei der Verschlüsselung.\n");
+        fclose(output_datei);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
+    }
+
+    // Schreibe die verschlüsselten Daten in die Ausgabedatei
+    fwrite(output_raw, 1, outlen, output_datei);
+    fclose(output_datei);
+    EVP_CIPHER_CTX_free(ctx);
+}
+
 int main(void) {
     // Variablen definieren und instanziieren
     FILE *s87622_bin, *s87622_key1_bin;
@@ -63,7 +101,6 @@ int main(void) {
         }
     }
 
-    // Ausgabe der Nachricht
     printf("Verschlüsselte Nachricht aus s87622-cipher.bin ORIGINAL: \n");
     printf("\n");
     printf("%s", output_raw); 
@@ -73,7 +110,9 @@ int main(void) {
     for (int i = 0; i < outlen; i++) {
         winterliche_muetzen(output_raw[i], stdout); 
     }
-
+    
+    // Verschlüsselung
+    verschluesseln_und_speichern(output_raw, outlen, "./bin/s87622-key2.bin", "./s87622-result.bin");
 
 
     // Aufräumarbeiten
