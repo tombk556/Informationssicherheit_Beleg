@@ -23,7 +23,7 @@ void speichere_mit_muetzen(const unsigned char *input, int input_len, char **out
     }
 
     (*output)[0] = '\0'; 
-
+    // Vokale durch Dächer ersetzen
     for (int i = 0; i < input_len; i++) {
         switch (input[i]) {
 
@@ -135,7 +135,8 @@ int main(void) {
     printf("%s", muetzen_output);
     
     // Verschlüsselung
-    verschluesseln_und_speichern(output_raw, outlen, "./bin/s87622-key2.bin", "./s87622-result.bin");
+    verschluesseln_und_speichern((unsigned char*)muetzen_output, strlen(muetzen_output), "./bin/s87622-key2.bin", "./s87622-result.bin");
+
 
 
     // Aufräumarbeiten
