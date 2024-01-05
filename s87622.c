@@ -73,7 +73,7 @@ void verschluesseln_und_speichern(const unsigned char *input, int input_len, con
 
     // Verschlüsselungsverfahren initialisieren
     ctx = EVP_CIPHER_CTX_new();
-    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_xts(), NULL, key, iv)) {
+    if(1 != EVP_EncryptInit(ctx, EVP_aes_128_xts(), key, iv)) {
         fprintf(stderr, "Fehler bei der Initialisierung der Verschlüsselung.\n");
         fclose(output_datei);
         EVP_CIPHER_CTX_free(ctx);
