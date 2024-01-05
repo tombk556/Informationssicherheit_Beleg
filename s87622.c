@@ -63,8 +63,8 @@ void verschluesseln_und_speichern(const unsigned char *input, int input_len, con
     }
 
     // Lese Schlüssel und IV
-    fread(key, 1, EVP_MAX_KEY_LENGTH, key_file);
-    fread(iv, 1, EVP_MAX_IV_LENGTH, key_file);
+    fread(key, 1, EVP_CIPHER_key_length(cipher_verfahren), key_file);
+    fread(iv, 1, EVP_CIPHER_iv_length(cipher_verfahren), key_file);
     fclose(key_file);
 
     // Verschlüsselungsverfahren initialisieren
