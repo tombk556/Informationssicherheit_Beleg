@@ -14,14 +14,31 @@ FILE *bin_datei(const char *path) {
     return file;
 }
 
-void winterliche_muetzen(char c, FILE *output) {
-    switch (c) {
-        case 'a': fprintf(output, "â"); break;
-        case 'e': fprintf(output, "ê"); break;
-        case 'i': fprintf(output, "î"); break;
-        case 'o': fprintf(output, "ô"); break;
-        case 'u': fprintf(output, "û"); break;
-        default:  fputc(c, output); break;
+void speichere_mit_muetzen(const unsigned char *input, int input_len, char **output) {
+    int max_output_len = input_len * 3 + 1; 
+    *output = (char*)malloc(max_output_len);
+    if (!*output) {
+        perror("Speicherzuweisungsfehler");
+        return;
+    }
+
+    (*output)[0] = '\0'; 
+
+    for (int i = 0; i < input_len; i++) {
+        switch (input[i]) {
+            case 'a': strcat(*output, "â"); break;
+            case 'e': strcat(*output, "ê"); break;
+            case 'i': strcat(*output, "î"); break;
+            case 'o': strcat(*output, "ô"); break;
+            case 'u': strcat(*output, "û"); break;
+            default:
+                {
+                    size_t len = strlen(*output);
+                    (*output)[len] = input[i];
+                    (*output)[len + 1] = '\0'; 
+                }
+                break;
+        }
     }
 }
 
@@ -107,9 +124,9 @@ int main(void) {
 
     printf("Verschlüsselte Nachricht aus s87622-cipher.bin mit 'winterlichen Mützen': \n");
     printf("\n");
-    for (int i = 0; i < outlen; i++) {
-        winterliche_muetzen(output_raw[i], stdout); 
-    }
+    char *muetzen_output = NULL;
+    speichere_mit_muetzen(output_raw, outlen, &muetzen_output);
+    // printf("%s", muetzen_output);
     
     // Verschlüsselung
     verschluesseln_und_speichern(output_raw, outlen, "./bin/s87622-key2.bin", "./s87622-result.bin");
