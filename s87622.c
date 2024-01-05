@@ -133,30 +133,32 @@ int main(void) {
     EVP_DecryptInit_ex(ctx, cipher_verfahren, NULL, key, iv);
 
     // Entschlüsselungsprozess
+    int total_outlen = 0;  // Gesamtlänge der Ausgabe hinzugefügt
     while ((inlen = fread(input, 1, 1024, s87622_bin)) > 0) {
-        if (!EVP_DecryptUpdate(ctx, output_raw, &outlen, input, inlen)) {
-            // Fehlerbehandlung
+        if (!EVP_DecryptUpdate(ctx, output_raw + total_outlen, &outlen, input, inlen)) {
             fprintf(stderr, "Fehler bei der Entschlüsselung.\n");
             fclose(s87622_bin);
             EVP_CIPHER_CTX_free(ctx);
             return 1;
         }
+        total_outlen += outlen; 
+        
+    }
+    if (!EVP_DecryptFinal(ctx, output_raw + total_outlen, &outlen)) {
+        fprintf(stderr, "Fehler beim Abschluss der Entschlüsselung.\n");
+        fclose(s87622_bin);
+        EVP_CIPHER_CTX_free(ctx);
+        return 1;
     }
 
-    printf("Verschlüsselte Nachricht aus s87622-cipher.bin ORIGINAL: \n");
-    printf("\n");
-    printf("%s", output_raw); 
-
-    printf("Verschlüsselte Nachricht aus s87622-cipher.bin mit 'winterlichen Mützen': \n");
-    printf("\n");
+    total_outlen += outlen; 
     char *muetzen_output = NULL;
-    speichere_mit_muetzen(output_raw, outlen, &muetzen_output);
+    speichere_mit_muetzen(output_raw, total_outlen, &muetzen_output);
+
     printf("%s", muetzen_output);
     
     // Verschlüsselung
     verschluesseln_und_speichern((unsigned char*)muetzen_output, strlen(muetzen_output), "./bin/s87622-key2.bin", "./s87622-result.bin");
-
-
 
     // Aufräumarbeiten
     fclose(s87622_bin);
