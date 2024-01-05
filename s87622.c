@@ -26,11 +26,17 @@ void speichere_mit_muetzen(const unsigned char *input, int input_len, char **out
 
     for (int i = 0; i < input_len; i++) {
         switch (input[i]) {
+
             case 'a': strcat(*output, "â"); break;
             case 'e': strcat(*output, "ê"); break;
             case 'i': strcat(*output, "î"); break;
             case 'o': strcat(*output, "ô"); break;
             case 'u': strcat(*output, "û"); break;
+            case 'A': strcat(*output, "Â"); break;
+            case 'E': strcat(*output, "Ê"); break;
+            case 'I': strcat(*output, "Î"); break;
+            case 'O': strcat(*output, "Ô"); break;
+            case 'U': strcat(*output, "Û"); break;
             default:
                 {
                     size_t len = strlen(*output);
@@ -126,7 +132,7 @@ int main(void) {
     printf("\n");
     char *muetzen_output = NULL;
     speichere_mit_muetzen(output_raw, outlen, &muetzen_output);
-    // printf("%s", muetzen_output);
+    printf("%s", muetzen_output);
     
     // Verschlüsselung
     verschluesseln_und_speichern(output_raw, outlen, "./bin/s87622-key2.bin", "./s87622-result.bin");
