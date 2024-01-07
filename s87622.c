@@ -26,7 +26,7 @@ void encryptFile(const char *srcPath, const char *destPath, const unsigned char 
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     const EVP_CIPHER *cipher_type = EVP_aes_128_xts();
-    EVP_EncryptInit_ex(ctx, cipher_type, NULL, key, iv);
+    EVP_EncryptInit(ctx, cipher_type, key, iv);
 
     unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
@@ -36,7 +36,7 @@ void encryptFile(const char *srcPath, const char *destPath, const unsigned char 
         fwrite(outbuf, 1, outlen, destFile);
     }
 
-    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
+    EVP_EncryptFinal(ctx, outbuf, &outlen);
     fwrite(outbuf, 1, outlen, destFile);
 
     fclose(srcFile);
@@ -132,7 +132,7 @@ int main(void) {
 
     unsigned char key2[EVP_MAX_KEY_LENGTH * 2], iv2[EVP_MAX_IV_LENGTH];
     FILE *keyFile2 = openBinaryFile("./bin/s87622-key2.bin");
-    fread(key2, 1, 32, keyFile2);  // Doppelter Schlüssel für XTS
+    fread(key2, 1, 32, keyFile2); 
     fread(iv2, 1, 16, keyFile2);
     fclose(keyFile2);
 
