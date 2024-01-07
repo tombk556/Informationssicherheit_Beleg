@@ -4,140 +4,165 @@
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 
-FILE *openBinaryFile(const char *filepath) {
-    FILE *file = fopen(filepath, "rb");
+FILE *bin_datei(const char *path) {
+    FILE *file = fopen(path, "rb");
     if (!file) {
         char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Fehler beim Öffnen der Datei: %s", filepath);
+        snprintf(err_msg, sizeof(err_msg), "Fehler beim Öffnen der Datei: %s", path);
         perror(err_msg);
     }
     return file;
 }
 
-void encryptFile(const char *srcPath, const char *destPath, const unsigned char *key, const unsigned char *iv) {
-    FILE *srcFile = fopen(srcPath, "rb");
-    FILE *destFile = fopen(destPath, "wb");
-    if (!srcFile || !destFile) {
-        perror("Fehler beim Öffnen der Dateien für die Verschlüsselung");
-        if (srcFile) fclose(srcFile);
-        if (destFile) fclose(destFile);
+void speichere_mit_muetzen(const unsigned char *input, int input_len, char **output) {
+    int max_output_len = input_len * 3 + 1; 
+    *output = (char*)malloc(max_output_len);
+    if (!*output) {
+        perror("Speicherzuweisungsfehler");
         return;
     }
 
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    const EVP_CIPHER *cipher_type = EVP_aes_128_xts();
-    EVP_EncryptInit_ex(ctx, cipher_type, NULL, key, iv);
+    (*output)[0] = '\0'; 
+    // Vokale durch Dächer ersetzen
+    for (int i = 0; i < input_len; i++) {
+        switch (input[i]) {
 
-    unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen;
+            case 'a': strcat(*output, "â"); break;
+            case 'e': strcat(*output, "ê"); break;
+            case 'i': strcat(*output, "î"); break;
+            case 'o': strcat(*output, "ô"); break;
+            case 'u': strcat(*output, "û"); break;
+            case 'A': strcat(*output, "Â"); break;
+            case 'E': strcat(*output, "Ê"); break;
+            case 'I': strcat(*output, "Î"); break;
+            case 'O': strcat(*output, "Ô"); break;
+            case 'U': strcat(*output, "Û"); break;
+            default:
+                {
+                    size_t len = strlen(*output);
+                    (*output)[len] = input[i];
+                    (*output)[len + 1] = '\0'; 
+                }
+                break;
+        }
+    }
+}
 
-    while ((inlen = fread(inbuf, 1, sizeof(inbuf), srcFile)) > 0) {
-        EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
-        fwrite(outbuf, 1, outlen, destFile);
+void verschluesseln_und_speichern(const unsigned char *input, int input_len, const char *key_path, const char *output_path) {
+    FILE *key_file = fopen(key_path, "rb");
+    FILE *output_datei = fopen(output_path, "wb");
+    unsigned char key[32]; // AES-128-XTS benötigt 2x128 Bit Schlüssel
+    unsigned char iv[16];  // XTS benötigt 128 Bit IV
+    EVP_CIPHER_CTX *ctx;
+    unsigned char output_raw[1024 + EVP_MAX_BLOCK_LENGTH];
+    int outlen;
+
+    if (!key_file || !output_datei) {
+        perror("Fehler beim Öffnen der Schlüssel- oder Ausgabedatei");
+        return;
     }
 
-    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
-    fwrite(outbuf, 1, outlen, destFile);
+    // Lese Schlüssel und IV
+    if(fread(key, 1, 32, key_file) != 32 || fread(iv, 1, 16, key_file) != 16) {
+        perror("Fehler beim Lesen des Schlüssels/IV");
+        fclose(key_file);
+        fclose(output_datei);
+        return;
+    }
+    fclose(key_file);
 
-    fclose(srcFile);
-    fclose(destFile);
+    // Verschlüsselungsverfahren initialisieren
+    ctx = EVP_CIPHER_CTX_new();
+    if(1 != EVP_EncryptInit(ctx, EVP_aes_128_xts(), key, iv)) {
+        fprintf(stderr, "Fehler bei der Initialisierung der Verschlüsselung.\n");
+        fclose(output_datei);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
+    }
+
+    // Verschlüsselungsprozess
+    if (!EVP_EncryptUpdate(ctx, output_raw, &outlen, input, input_len)) {
+        fprintf(stderr, "Fehler bei der Verschlüsselung.\n");
+        fclose(output_datei);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
+    }
+
+    // Abschluss der Verschlüsselung
+    int tmplen;
+    if(!EVP_EncryptFinal_ex(ctx, output_raw + outlen, &tmplen)) {
+        fprintf(stderr, "Fehler beim Abschluss der Verschlüsselung.\n");
+        fclose(output_datei);
+        EVP_CIPHER_CTX_free(ctx);
+        return;
+    }
+    outlen += tmplen;
+
+    // Schreibe die verschlüsselten Daten in die Ausgabedatei
+    fwrite(output_raw, 1, outlen, output_datei);
+    fclose(output_datei);
     EVP_CIPHER_CTX_free(ctx);
 }
 
-void addWinterHat(char c, FILE *outFile) {
-    switch (c) {
-        case 'a': fprintf(outFile, "â"); break;
-        case 'e': fprintf(outFile, "ê"); break;
-        case 'i': fprintf(outFile, "î"); break;
-        case 'o': fprintf(outFile, "ô"); break;
-        case 'u': fprintf(outFile, "û"); break;
-        default:  fputc(c, outFile); break;
-    }
-}
-
-void transformBufferAndWrite(unsigned char *buf, int len, FILE *outFile) {
-    for (int i = 0; i < len; ++i) {
-        addWinterHat(buf[i], outFile);
-    }
-}
 
 int main(void) {
-    FILE *bin_file_cipher, *bin_file_key, *bin_file_decrypted;
+    // Variablen definieren und instanziieren
+    FILE *s87622_bin, *s87622_key1_bin;
     unsigned char key[EVP_MAX_KEY_LENGTH], iv[EVP_MAX_IV_LENGTH];
-    const EVP_CIPHER *cipher_type;
+    const EVP_CIPHER *cipher_verfahren;
     EVP_CIPHER_CTX *ctx;
     int key_length, iv_length;
-    unsigned char inbuf[1024], outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
+    unsigned char input[1024], output_raw[1024 + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
 
-    // Lade das Chiffrat aus ./bin/s87622-cipher.bin
-    bin_file_cipher = openBinaryFile("./bin/s87622-cipher.bin");
+    // Lade das Chiffrat und den Schlüssel/IV
+    s87622_bin = bin_datei("./bin/s87622-cipher.bin");
+    s87622_key1_bin = bin_datei("./bin/s87622-key1.bin");
 
-    // Lade den Schlüssel und Intitaliserungs Vektor (IV) aus ./bin/s87622-key1.bin
-    bin_file_key = openBinaryFile("./bin/s87622-key1.bin");
+    cipher_verfahren = EVP_aes_256_xts();
+    key_length = EVP_CIPHER_key_length(cipher_verfahren);
+    iv_length = EVP_CIPHER_iv_length(cipher_verfahren);
 
-    cipher_type = EVP_aes_256_xts();
-    key_length = EVP_CIPHER_key_length(cipher_type);
-    iv_length = EVP_CIPHER_iv_length(cipher_type);
+    // Lese Schlüssel und IV
+    fread(key, 1, key_length, s87622_key1_bin);
+    fread(iv, 1, iv_length, s87622_key1_bin);
+    fclose(s87622_key1_bin);
 
-    // Lese Schlüssel und IV aus der Datei
-    fread(key, 1, key_length, bin_file_key);
-    fread(iv, 1, iv_length, bin_file_key);
-    fclose(bin_file_key);
-
-    // Initialisiere die Entschlüsselung
+    // Initialisiere Entschlüsselung
     ctx = EVP_CIPHER_CTX_new();
-    EVP_DecryptInit_ex(ctx, cipher_type, NULL, key, iv);
-
-    // Öffne die Ausgabedatei
-    bin_file_decrypted = fopen("decrypted.bin", "wb");
-    if (!bin_file_decrypted) {
-        perror("Fehler beim Öffnen der Ausgabedatei");
-        fclose(bin_file_cipher);
-        EVP_CIPHER_CTX_free(ctx);
-        return 1;
-    }
+    EVP_DecryptInit_ex(ctx, cipher_verfahren, NULL, key, iv);
 
     // Entschlüsselungsprozess
-    while ((inlen = fread(inbuf, 1, 1024, bin_file_cipher)) > 0) {
-        if (!EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen)) {
-            // Fehlerbehandlung
+    int total_outlen = 0;  // Gesamtlänge der Ausgabe hinzugefügt
+    while ((inlen = fread(input, 1, 1024, s87622_bin)) > 0) {
+        if (!EVP_DecryptUpdate(ctx, output_raw + total_outlen, &outlen, input, inlen)) {
             fprintf(stderr, "Fehler bei der Entschlüsselung.\n");
-            fclose(bin_file_cipher);
-            fclose(bin_file_decrypted);
+            fclose(s87622_bin);
             EVP_CIPHER_CTX_free(ctx);
             return 1;
         }
-        transformBufferAndWrite(outbuf, outlen, bin_file_decrypted);
-
+        total_outlen += outlen; 
+        
     }
-
-    if (!EVP_DecryptFinal_ex(ctx, outbuf, &outlen)) {
-        // Fehlerbehandlung für den finalen Block
-        fprintf(stderr, "Fehler bei der finalen Entschlüsselung.\n");
-        fclose(bin_file_cipher);
-        fclose(bin_file_decrypted);
+    if (!EVP_DecryptFinal(ctx, output_raw + total_outlen, &outlen)) {
+        fprintf(stderr, "Fehler beim Abschluss der Entschlüsselung.\n");
+        fclose(s87622_bin);
         EVP_CIPHER_CTX_free(ctx);
         return 1;
     }
-    fwrite(outbuf, 1, outlen, bin_file_decrypted);
+
+    total_outlen += outlen; 
+    char *muetzen_output = NULL;
+    speichere_mit_muetzen(output_raw, total_outlen, &muetzen_output);
+
+    printf("%s", muetzen_output);
+    
+    // Verschlüsselung
+    verschluesseln_und_speichern((unsigned char*)muetzen_output, strlen(muetzen_output), "./bin/s87622-key2.bin", "./s87622-result.bin");
 
     // Aufräumarbeiten
-    fclose(bin_file_cipher);
-    fclose(bin_file_decrypted);
+    fclose(s87622_bin);
     EVP_CIPHER_CTX_free(ctx);
 
-    printf("Entschlüsselung erfolgreich abgeschlossen.\n");
-
-
-    unsigned char key2[EVP_MAX_KEY_LENGTH * 2], iv2[EVP_MAX_IV_LENGTH];
-    FILE *keyFile2 = openBinaryFile("./bin/s87622-key2.bin");
-    fread(key2, 1, EVP_MAX_KEY_LENGTH * 2, keyFile2);  // Doppelter Schlüssel für XTS
-    fread(iv2, 1, EVP_MAX_IV_LENGTH, keyFile2);
-    fclose(keyFile2);
-
-    // Verschlüsselungsprozess
-    encryptFile("decrypted.bin", "s87622-result.bin", key2, iv2);
-    printf("Verschlüsselung erfolgreich abgeschlossen.\n");
     return 0;
 }
